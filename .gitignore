@@ -1,0 +1,18 @@
+# CMake 构建目录
+build/
+
+# 编译中间产物
+*.o
+*.i
+*.s
+
+# 可执行文件
+hello
+hello_g
+app
+
+# 编辑器配置（每人习惯不同，不该进仓库）
+.vscode/
+
+# Data Lab 原始压缩包（内容已解压在 datalab-handout/ 里）
+datalab-handout.tar
