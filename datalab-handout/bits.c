@@ -167,7 +167,8 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+   int y = x + 1;
+   return !(y ^ ~x) & !!y;
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -178,7 +179,8 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  int mask = (0xAA << 24) | (0xAA << 16) | (0xAA << 8) | 0xAA;
+  return !((x & mask) ^ mask);
 }
 /* 
  * negate - return -x 
@@ -188,7 +190,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+   return ~x + 1;
 }
 //3
 /* 
@@ -201,7 +203,9 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  int lower = x + ~0x30 + 1;      // x - 0x30
+  int upper = 0x39 + ~x + 1;      // 0x39 - x
+  return !(lower >> 31) & !(upper >> 31);
 }
 /* 
  * conditional - same as x ? y : z 
@@ -211,7 +215,8 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+   int mask = ~(!x) + 1;              // x!=0 → 0；x==0 → -1（全 1）
+  return (y & ~mask) | (z & mask);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -221,7 +226,12 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+   int sx = x >> 31;               // x 的符号
+  int sy = y >> 31;               // y 的符号
+  int diff = sx ^ sy;             // 符号不同 → 全 1
+  int yMinusX = y + ~x + 1;       // y - x
+  int noOvf = !(yMinusX >> 31);   // y-x 非负（且没溢出）
+  return ((diff & sx) | (~diff & noOvf)) & 1;
 }
 //4
 /* 
@@ -233,7 +243,7 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  return ((x | (~x + 1)) >> 31) + 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -248,7 +258,15 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  int sign, b16, b8, b4, b2, b1;
+  sign = x >> 31;
+  x = x ^ sign;
+  b16 = (!!(x >> 16)) << 4;  x = x >> b16;
+  b8  = (!!(x >> 8))  << 3;  x = x >> b8;
+  b4  = (!!(x >> 4))  << 2;  x = x >> b4;
+  b2  = (!!(x >> 2))  << 1;  x = x >> b2;
+  b1  = (!!(x >> 1))  << 0;  x = x >> b1;
+  return b16 + b8 + b4 + b2 + b1 + x + 1;
 }
 //float
 /* 
@@ -262,8 +280,16 @@ int howManyBits(int x) {
  *   Max ops: 30
  *   Rating: 4
  */
+
 unsigned floatScale2(unsigned uf) {
-  return 2;
+  unsigned sign = uf & 0x80000000;
+  unsigned exp  = (uf >> 23) & 0xFF;
+  unsigned frac = uf & 0x7FFFFF;
+
+  if (exp == 0xFF) return uf;                  // NaN / Inf 原样返回
+  if (exp == 0)    return sign | (frac << 1);  // 非规格化：尾数左移一位
+  if (exp == 0xFE) return sign | 0x7F800000;   // 阶码要溢出 → Inf
+  return sign | ((exp + 1) << 23) | frac;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -278,7 +304,22 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+  int sign, exp, frac, E;
+  sign = uf >> 31;
+  exp  = (uf >> 23) & 0xFF;
+  frac = (uf & 0x7FFFFF) | 0x800000;
+
+  if (exp == 0xFF) return 0x80000000u;
+  if (exp == 0)    return 0;
+  E = exp - 127;
+  if (E < 0)  return 0;
+  if (E > 30) return 0x80000000u;
+
+  if (E < 23) frac = frac >> (23 - E);
+  else        frac = frac << (E - 23);
+
+  if (sign) frac = -frac;
+  return frac;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -294,5 +335,8 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+  if (x > 127)   return 0x7F800000;
+  if (x >= -126) return (x + 127) << 23;
+  if (x >= -149) return 1 << (x + 149);
+  return 0;
 }
