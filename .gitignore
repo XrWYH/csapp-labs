@@ -16,3 +16,7 @@ app
 
 # Data Lab 原始压缩包（内容已解压在 datalab-handout/ 里）
 datalab-handout.tar
+# 编译产物（make 生成，不属于 handout 内容）
+datalab-handout/btest
+datalab-handout/fshow
+datalab-handout/ishow
